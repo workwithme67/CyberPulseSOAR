@@ -1,7 +1,7 @@
 # SOAR Incident Containment Engine
 
 > **Security Orchestration, Automation, and Response (SOAR) Platform**
-> Internship Project — Infotact | **50% Milestone: Complete Backend**
+> Internship project — backend milestone with alerting, scoring, timeline, and playbook automation.
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688)](https://fastapi.tiangolo.com)
@@ -33,15 +33,22 @@
 
 ## Project Overview
 
-The **SOAR Incident Containment Engine** is a production-ready backend for automating
-the detection, enrichment, scoring, and triage of cybersecurity incidents.
+The **SOAR Incident Containment Engine** is a FastAPI backend for automating the detection, enrichment, scoring, and triage of cybersecurity incidents.
+
+This backend is intentionally structured around small, testable layers so the alert pipeline stays easy to extend:
 
 When a security alert is ingested, the engine automatically:
 1. **Validates** the source IP and input data.
 2. **Enriches** the IP through AbuseIPDB and VirusTotal.
-3. **Calculates** a weighted risk score (0–100).
+3. **Calculates** a weighted risk score in the 0–100 range.
 4. **Records** a full incident timeline for audit purposes.
 5. **Exposes** dashboard analytics for operational visibility.
+
+## Project Notes
+
+- The API is designed around FastAPI, SQLAlchemy, and Pydantic v2.
+- Playbooks live at the repository root and are loaded dynamically by name.
+- The current milestone keeps threat intelligence integrations mock-friendly so the backend works without API keys.
 
 ---
 

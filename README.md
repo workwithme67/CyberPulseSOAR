@@ -1,7 +1,7 @@
 # 🛡️ SOAR Incident Containment Engine
 
 > **Security Orchestration, Automation, and Response (SOAR) Platform**  
-> Cybersecurity Internship Project — Infotact Solution
+> Cybersecurity internship project for automated incident containment and response.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -14,7 +14,16 @@
 
 ## 📖 Overview
 
-The **SOAR Incident Containment Engine** is a production-ready cybersecurity automation platform designed to streamline incident response operations. It ingests security alerts, enriches them with real-time threat intelligence, computes weighted risk scores, executes automated response playbooks, and provides a comprehensive audit trail — all through a clean REST API.
+The **SOAR Incident Containment Engine** is a cybersecurity automation platform for ingesting alerts, enriching them with threat intelligence, computing weighted risk scores, executing response playbooks, and keeping a full incident audit trail through a clean REST API.
+
+The repository is split into a backend API in `backend/` and reusable playbooks in `playbooks/`. The root README focuses on the full project vision, while the backend README covers implementation details and local setup.
+
+### Current focus
+
+- Alert ingestion, enrichment, risk scoring, and timeline tracking.
+- Automated response playbooks for blocking, isolating, notifying, and escalating.
+- FastAPI endpoints for dashboards and incident operations.
+- A backend codebase that is ready for further authentication and frontend work.
 
 ### What it does, end-to-end:
 
