@@ -613,7 +613,7 @@ All tests use:
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| **Frontend Dashboard** | High | React/Next.js real-time dashboard with charts |
+| **Frontend Dashboard** | Complete | React/Vite dashboard lives in `../frontend` |
 | **User Authentication** | High | JWT-based auth + RBAC (Admin, Analyst, Viewer) |
 | **Playbook Automation** | High | Rule-based response playbooks (auto-block IP, send alert) |
 | **Real-time Notifications** | Medium | WebSocket push for new Critical alerts |
@@ -666,6 +666,8 @@ backend/
 ├── README.md
 └── requirements.txt
 ```
+
+The frontend dashboard lives in [`../frontend`](../frontend) and consumes the analytics endpoints documented above.
 
 ---
 

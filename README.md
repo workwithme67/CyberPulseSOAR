@@ -62,7 +62,7 @@ Security Alert Received
 | 📅 Incident Timeline Tracking | ✅ Complete | 5 event types, full audit trail |
 | 📈 Interactive Dashboard API | ✅ Complete | Summary, risk distribution, recent alerts |
 | 🔐 User Authentication (RBAC) | 🔜 In Progress | JWT-based auth + Admin/Analyst/Viewer roles |
-| 🌐 Frontend Dashboard | 🔜 Planned | React/Next.js real-time dashboard |
+| 🌐 Frontend Dashboard | ✅ Complete | React/Vite real-time dashboard |
 | 📧 Real-time Notifications | 🔜 Planned | WebSocket push for Critical alerts |
 
 ---
@@ -346,6 +346,15 @@ soar-incident-containment-engine/
 │   ├── .env.example
 │   ├── requirements.txt
 │   └── README.md                      # Backend-specific docs
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx                    # Live SOAR dashboard UI
+│   │   ├── main.tsx                   # React entrypoint
+│   │   └── styles.css                 # Dashboard styling
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── README.md                      # Frontend-specific docs
 ├── playbooks/
 │   ├── block_ip.py                    # Block malicious IPs
 │   ├── isolate_host.py                # Host isolation
@@ -360,7 +369,7 @@ soar-incident-containment-engine/
 
 | Feature | Priority | Status |
 |---------|----------|--------|
-| Frontend Dashboard (React/Next.js) | 🔴 High | Planned |
+| Frontend Dashboard (React/Vite) | ✅ Complete | Live dashboard consuming backend analytics |
 | JWT Auth + RBAC | 🔴 High | In Progress |
 | WebSocket Real-time Alerts | 🟡 Medium | Planned |
 | SIEM Integration (Splunk/Elastic) | 🟡 Medium | Planned |
