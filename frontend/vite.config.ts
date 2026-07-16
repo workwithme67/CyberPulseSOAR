@@ -7,6 +7,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/dashboard': 'http://localhost:8000',
+      '/alerts': 'http://localhost:8000',
+      '/auth': 'http://localhost:8000',
+      '/playbooks': 'http://localhost:8000',
     },
   },
 });

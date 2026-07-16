@@ -25,6 +25,7 @@ from datetime import datetime, timezone, timedelta
 
 from app.database.db import Base, engine, SessionLocal
 from app.models.alert import Alert, AlertStatus, SeverityLevel
+from app.models.timeline import TimelineEvent
 from app.services.risk_scoring import calculate_risk_score
 
 

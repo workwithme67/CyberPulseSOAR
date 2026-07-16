@@ -21,7 +21,7 @@ from app.models.schemas import (
     RiskBucket,
     RiskDistributionResponse,
 )
-from app.services import alert_service
+from app.services import alert_service, playbook_service
 from app.utils.helpers import get_logger
 
 router = APIRouter()
@@ -54,6 +54,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     malicious_count  = alert_service.count_by_verdict(db, "Malicious")
     suspicious_count = alert_service.count_by_verdict(db, "Suspicious")
     avg_score      = alert_service.avg_risk_score(db)
+    blocked_ips_count = playbook_service.count_blocked_ips(db)
 
     logger.info(
         "Dashboard summary | total=%d open=%d critical=%d avg_risk=%.1f",
@@ -72,6 +73,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
         malicious_ips=malicious_count,
         suspicious_ips=suspicious_count,
         avg_risk_score=avg_score,
+        blocked_ips=blocked_ips_count,
     )
 
 
