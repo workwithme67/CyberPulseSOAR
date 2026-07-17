@@ -43,6 +43,7 @@ def get_current_user(
         if not username:
             raise ValueError("Token missing 'sub' claim.")
     except (JWTError, ValueError) as exc:
+        logger.debug("Failed to decode token: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {exc}",

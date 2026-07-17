@@ -40,9 +40,10 @@ logger = get_logger(__name__)
     description="Returns all registered automated response playbooks.",
 )
 def list_playbooks(
-    _: User = Depends(require_any_role),
+    current_user: User = Depends(require_any_role),
 ) -> PlaybookListResponse:
     """Return all available playbook definitions."""
+    logger.info("Playbooks list requested by user: %s", current_user.username)
     try:
         import sys, os
         _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

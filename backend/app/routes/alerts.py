@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.database.db import get_db
 from app.models.alert import AlertStatus, SeverityLevel
+from app.models.user import User
 from app.models.schemas import (
     AlertCreate,
     AlertListResponse,
@@ -29,6 +30,7 @@ from app.models.schemas import (
     AlertTimeline,
     TimelineEventResponse,
 )
+from app.routes.deps import require_admin, require_analyst, require_any_role
 from app.services import alert_service, threat_intelligence, timeline_service
 from app.services.risk_scoring import score_summary
 from app.utils.helpers import get_logger
@@ -57,6 +59,7 @@ logger = get_logger(__name__)
 def create_alert(
     payload: AlertCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_analyst),
 ) -> AlertResponse:
     """Ingest and persist a new security alert with automatic enrichment."""
     return alert_service.create_alert(db=db, payload=payload)
@@ -83,6 +86,7 @@ def list_alerts(
         default=None, description="Filter by alert type substring (case-insensitive)"
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
 ) -> AlertListResponse:
     """Return a paginated list of security alerts with optional filters."""
     alerts = alert_service.get_alerts(
@@ -103,6 +107,7 @@ def list_alerts(
 def get_alert(
     alert_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
 ) -> AlertResponse:
     """Retrieve a specific security alert by its numeric ID."""
     return alert_service.get_alert_by_id(db=db, alert_id=alert_id)
@@ -122,6 +127,7 @@ def update_alert_status(
     alert_id: int,
     payload: AlertStatusUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_analyst),
 ) -> AlertResponse:
     """Transition the alert's workflow status."""
     return alert_service.update_alert_status(db=db, alert_id=alert_id, payload=payload)
@@ -140,6 +146,7 @@ def update_alert_status(
 def delete_alert(
     alert_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Dict[str, str]:
     """Permanently delete an alert and all associated timeline events."""
     return alert_service.delete_alert(db=db, alert_id=alert_id)
@@ -157,6 +164,7 @@ def delete_alert(
 def enrich_alert(
     alert_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
 ) -> Dict[str, Any]:
     """Return TI enrichment and risk score summary for an alert."""
     alert    = alert_service.get_alert_by_id(db=db, alert_id=alert_id)
@@ -188,6 +196,7 @@ def enrich_alert(
 def get_alert_timeline(
     alert_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
 ) -> AlertTimeline:
     """Retrieve the full incident lifecycle timeline for an alert."""
     alert = alert_service.get_alert_by_id(db=db, alert_id=alert_id)

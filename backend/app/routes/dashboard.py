@@ -15,12 +15,14 @@ from sqlalchemy.orm import Session
 
 from app.database.db import get_db
 from app.models.alert import AlertStatus, SeverityLevel
+from app.models.user import User
 from app.models.schemas import (
     DashboardSummary,
     RecentAlertsResponse,
     RiskBucket,
     RiskDistributionResponse,
 )
+from app.routes.deps import require_any_role
 from app.services import alert_service, playbook_service
 from app.utils.helpers import get_logger
 
@@ -41,7 +43,10 @@ logger = get_logger(__name__)
         "- **Average risk score** across all alerts."
     ),
 )
-def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
+def dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
+) -> DashboardSummary:
     """Return live aggregate dashboard metrics."""
     total          = alert_service.count_alerts(db)
     open_count     = alert_service.count_by_status(db, AlertStatus.Open)
@@ -92,7 +97,10 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
         "| Critical | 76 – 100    |"
     ),
 )
-def risk_distribution(db: Session = Depends(get_db)) -> RiskDistributionResponse:
+def risk_distribution(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
+) -> RiskDistributionResponse:
     """Return the risk score histogram across all alerts."""
     dist  = alert_service.risk_distribution(db)
     total = alert_service.count_alerts(db)
@@ -127,6 +135,7 @@ def risk_distribution(db: Session = Depends(get_db)) -> RiskDistributionResponse
 def recent_alerts(
     limit: int = Query(default=10, ge=1, le=50, description="Number of recent alerts to return"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
 ) -> RecentAlertsResponse:
     """Return the N most recently created alerts."""
     alerts = alert_service.get_recent_alerts(db=db, limit=limit)

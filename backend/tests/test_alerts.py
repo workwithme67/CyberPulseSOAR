@@ -26,6 +26,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database.db import Base, get_db
+from app.models.user import User, UserRole
+from app.routes.deps import get_current_user
 from app.services import risk_scoring, threat_intelligence
 
 # ── Isolated in-memory test database (no file-path issues) ───────────────────
@@ -50,14 +52,26 @@ def override_get_db():
         db.close()
 
 
+def mock_get_current_user():
+    return User(
+        id=999,
+        username="test_admin",
+        email="test_admin@example.com",
+        role=UserRole.Admin,
+        is_active=True,
+    )
+
+
 @pytest.fixture(autouse=True)
 def setup_database():
     """Create tables before each test and drop them after."""
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = mock_get_current_user
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 client = TestClient(app)

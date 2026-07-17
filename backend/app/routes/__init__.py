@@ -1,3 +1,5 @@
-"""HTTP route handlers for alerts, dashboard, auth, and playbooks."""
+from __future__ import annotations
 
-__all__ = []
+from . import alerts, auth, dashboard, playbooks
+
+__all__ = ["alerts", "auth", "dashboard", "playbooks"]

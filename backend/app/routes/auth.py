@@ -13,7 +13,7 @@ DELETE /auth/users/{id}      Deactivate a user (Admin only).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.database.db import get_db
@@ -46,16 +46,37 @@ logger = get_logger(__name__)
 )
 def register(
     payload: UserCreate,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> UserResponse:
     """Register a new user. First user is always created; subsequent require auth."""
     # Allow first user (bootstrap) without auth
     total = db.query(User).count()
     if total > 0:
-        # After bootstrap, require admin token — done via a separate flow;
-        # here we just create the user if the request passes through.
-        # Production: protect this endpoint with require_admin dependency.
-        pass
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated.",
+            )
+        token = auth_header.split(" ")[1]
+        try:
+            from app.utils.security import decode_token
+            payload_jwt = decode_token(token)
+            username = payload_jwt.get("sub")
+            if not username:
+                raise ValueError()
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token.",
+            )
+        current_user = auth_service.get_user_by_username(db, username)
+        if not current_user or current_user.role != UserRole.Admin or not current_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin role required for registration after bootstrapping.",
+            )
     user = auth_service.create_user(db, payload)
     return user
 

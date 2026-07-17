@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database.db import Base, engine
-from app.routes import alerts, dashboard
+from app.routes import alerts, dashboard, auth, playbooks
 from app.utils.helpers import get_logger, setup_logging
 
 # ── Logging must be configured before any module uses get_logger() ───────────
@@ -33,7 +33,7 @@ logger = get_logger("soar.main")
 async def lifespan(app: FastAPI):
     """Create all tables on startup; log shutdown."""
     # Import models so SQLAlchemy knows about them before create_all()
-    from app.models import alert, timeline  # noqa: F401
+    from app.models import alert, timeline, user, blocked_ip, playbook  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     logger.info(
@@ -113,6 +113,8 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(alerts.router,    prefix="/alerts",    tags=["Alerts"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(auth.router,      prefix="/auth",      tags=["Auth"])
+app.include_router(playbooks.router, prefix="/playbooks", tags=["Playbooks"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
