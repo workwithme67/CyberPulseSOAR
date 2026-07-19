@@ -413,6 +413,14 @@ export default function App() {
   // Ingest Alert Submit Handler
   const handleIngestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side IPv4 regex validation
+    const ipv4Regex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipv4Regex.test(ingestForm.source_ip.trim())) {
+      addToast("Invalid IP Address format. Provide a valid IPv4 address (e.g. 192.168.1.1)", "error");
+      return;
+    }
+
     try {
       const res = await fetch(`${apiBase}/alerts/`, {
         method: 'POST',
@@ -1178,6 +1186,8 @@ export default function App() {
                   className="input-field"
                   placeholder="e.g. 192.168.1.105"
                   required
+                  pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+                  title="Please enter a valid IPv4 address (e.g. 192.168.1.1)"
                   value={ingestForm.source_ip}
                   onChange={(e) => setIngestForm({ ...ingestForm, source_ip: e.target.value })}
                 />
