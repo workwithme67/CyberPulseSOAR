@@ -580,3 +580,63 @@ class TestThreatIntelligence:
     def test_enrich_ip_aggregate_in_range(self):
         result = threat_intelligence.enrich_ip(self.TEST_IP_BAD)
         assert 0 <= result["aggregate_confidence"] <= 100
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. Playbook Auto-Trigger Tests
+# ─────────────────────────────────────────────────────────────────────────────
+class TestPlaybookAutoTrigger:
+    TEST_IP_BAD = "203.0.113.42"  # Known bad IP (Malicious verdict)
+
+    def test_create_malicious_ip_triggers_block_ip_playbook(self):
+        payload = {
+            "alert_type":  "Brute Force",
+            "source_ip":   self.TEST_IP_BAD,
+            "severity":    "High",
+            "description": "SSH brute-force attempts.",
+        }
+        response = client.post("/alerts/", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        
+        execs_response = client.get(f"/playbooks/executions?alert_id={data['alert_id']}")
+        assert execs_response.status_code == 200
+        execs = execs_response.json()
+        assert len(execs) >= 1
+        assert any(e["playbook_name"] == "block_ip" for e in execs)
+        assert any(e["executed_by"] == "SOAR Automation" for e in execs)
+
+    def test_create_ransomware_alert_triggers_host_isolation(self):
+        payload = {
+            "alert_type":  "Ransomware Activity",
+            "source_ip":   "192.168.1.101",
+            "severity":    "Medium",
+            "description": "Ransomware activity.",
+        }
+        response = client.post("/alerts/", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        
+        execs_response = client.get(f"/playbooks/executions?alert_id={data['alert_id']}")
+        assert execs_response.status_code == 200
+        execs = execs_response.json()
+        assert len(execs) >= 1
+        assert any(e["playbook_name"] == "isolate_host" for e in execs)
+
+    def test_create_critical_severity_alert_triggers_escalation(self):
+        payload = {
+            "alert_type":  "Suspicious Login",
+            "source_ip":   "192.168.1.102",
+            "severity":    "Critical",
+            "description": "Critical logins.",
+        }
+        response = client.post("/alerts/", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        
+        execs_response = client.get(f"/playbooks/executions?alert_id={data['alert_id']}")
+        assert execs_response.status_code == 200
+        execs = execs_response.json()
+        assert len(execs) >= 1
+        assert any(e["playbook_name"] == "escalate" for e in execs)
+

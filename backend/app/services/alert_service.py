@@ -153,6 +153,46 @@ def create_alert(db: Session, payload: AlertCreate) -> Alert:
     db.commit()
     db.refresh(alert)
 
+    # ── Step 8: Playbook Automation (Rule-based execution) ────────────────────
+    from app.config import settings
+    if settings.PLAYBOOK_AUTO_TRIGGER:
+        try:
+            from app.services import playbook_service
+            # Rule 1: Auto Block IP if malicious OR risk score >= 76 (Critical)
+            if alert.threat_verdict == "Malicious" or alert.risk_score >= 76.0:
+                logger.info("Auto-triggering block_ip playbook for alert %s", alert.alert_id)
+                playbook_service.execute_playbook(
+                    db=db,
+                    alert_id=alert.alert_id,
+                    playbook_name="block_ip",
+                    executed_by="SOAR Automation",
+                    notes=f"Automated block rule triggered: Verdict={alert.threat_verdict}, Risk={alert.risk_score}"
+                )
+            
+            # Rule 2: Auto Isolate Host if Ransomware
+            if "ransomware" in alert.alert_type.lower():
+                logger.info("Auto-triggering isolate_host playbook for alert %s", alert.alert_id)
+                playbook_service.execute_playbook(
+                    db=db,
+                    alert_id=alert.alert_id,
+                    playbook_name="isolate_host",
+                    executed_by="SOAR Automation",
+                    notes="Automated host isolation triggered: Ransomware activity detected"
+                )
+                
+            # Rule 3: Auto Escalate if Critical severity
+            if alert.severity == SeverityLevel.Critical:
+                logger.info("Auto-triggering escalate playbook for alert %s", alert.alert_id)
+                playbook_service.execute_playbook(
+                    db=db,
+                    alert_id=alert.alert_id,
+                    playbook_name="escalate",
+                    executed_by="SOAR Automation",
+                    notes="Automated SOC escalation triggered: Critical severity alert"
+                )
+        except Exception as auto_exc:
+            logger.error("Error executing auto-containment playbook for alert %s: %s", alert.alert_id, auto_exc)
+
     logger.info(
         "Alert created | alert_id=%s type=%s ip=%s severity=%s "
         "risk=%.1f verdict=%s",
@@ -160,6 +200,7 @@ def create_alert(db: Session, payload: AlertCreate) -> Alert:
         alert.severity, alert.risk_score, alert.threat_verdict,
     )
     return alert
+
 
 
 # ── Read (list) ───────────────────────────────────────────────────────────────

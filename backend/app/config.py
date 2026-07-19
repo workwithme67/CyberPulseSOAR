@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
     DEBUG: bool = True
+    PLAYBOOK_AUTO_TRIGGER: bool = True
+
 
     # ── Database ───────────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./soar.db"

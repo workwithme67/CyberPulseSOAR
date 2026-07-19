@@ -84,9 +84,54 @@ def execute_playbook(
     return execution
 
 
+# ── GET /playbooks/export/csv ──────────────────────────────────────────────────
+@router.get(
+    "/export/csv",
+    summary="Export playbook executions to CSV",
+    description="Returns a downloadable CSV file containing all playbook executions.",
+)
+def export_playbooks_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
+):
+    """Export playbook executions to a CSV file."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.models.playbook import PlaybookExecution
+
+    executions = db.query(PlaybookExecution).order_by(PlaybookExecution.executed_at.desc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        "ID", "Alert DB ID", "Alert ID", "Playbook Name", 
+        "Action", "Target", "Status", "Result Message", 
+        "Executed By", "Executed At"
+    ])
+    
+    for e in executions:
+        writer.writerow([
+            e.id, e.alert_db_id, e.alert_id, e.playbook_name, 
+            e.action, e.target or "", e.status.value if hasattr(e.status, 'value') else str(e.status), 
+            e.result_message or "", e.executed_by, 
+            e.executed_at.isoformat() if hasattr(e.executed_at, 'isoformat') else str(e.executed_at)
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=soar_playbook_history.csv"}
+    )
+
+
 # ── GET /playbooks/executions ─────────────────────────────────────────────────
 @router.get(
     "/executions",
+
     response_model=List[PlaybookExecutionResponse],
     summary="List playbook executions",
     description="Returns a history of all playbook executions, optionally filtered by alert.",

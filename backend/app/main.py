@@ -132,3 +132,26 @@ def health_check() -> dict:
             "virustotal": "live" if settings.virustotal_enabled else "mock",
         },
     }
+
+
+@app.get("/health/ti-diagnostics", tags=["Health"], summary="TI integration diagnostics")
+def ti_diagnostics() -> dict:
+    """Returns detailed diagnostics of threat intelligence integrations."""
+    return {
+        "abuseipdb": {
+            "status": "live" if settings.abuseipdb_enabled else "mock",
+            "api_key_configured": bool(settings.ABUSEIPDB_API_KEY),
+            "api_key_valid_format": len(settings.ABUSEIPDB_API_KEY) > 10 if settings.ABUSEIPDB_API_KEY else False,
+        },
+        "virustotal": {
+            "status": "live" if settings.virustotal_enabled else "mock",
+            "api_key_configured": bool(settings.VIRUSTOTAL_API_KEY),
+            "api_key_valid_format": len(settings.VIRUSTOTAL_API_KEY) > 10 if settings.VIRUSTOTAL_API_KEY else False,
+        },
+        "ipinfo": {
+            "status": "live" if settings.ipinfo_enabled else "mock",
+            "api_key_configured": bool(settings.IPINFO_API_KEY),
+        },
+        "playbook_auto_trigger": settings.PLAYBOOK_AUTO_TRIGGER,
+    }
+

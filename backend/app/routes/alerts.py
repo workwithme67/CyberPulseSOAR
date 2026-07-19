@@ -97,9 +97,54 @@ def list_alerts(
     return AlertListResponse(total=total, alerts=alerts)
 
 
+# ── GET /alerts/export/csv ────────────────────────────────────────────────────
+@router.get(
+    "/export/csv",
+    summary="Export all alerts to CSV",
+    description="Returns a downloadable CSV file containing all alerts currently in the database.",
+)
+def export_alerts_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
+):
+    """Export alerts to a CSV file."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.models.alert import Alert
+
+    alerts = db.query(Alert).order_by(Alert.created_at.desc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        "ID", "Alert ID", "Type", "Source IP", "Severity", 
+        "Status", "Risk Score", "Threat Verdict", "Description", 
+        "Created At", "Updated At"
+    ])
+    
+    for a in alerts:
+        writer.writerow([
+            a.id, a.alert_id, a.alert_type, a.source_ip, a.severity.value if hasattr(a.severity, 'value') else str(a.severity), 
+            a.status.value if hasattr(a.status, 'value') else str(a.status), a.risk_score, a.threat_verdict, a.description or "", 
+            a.created_at.isoformat() if hasattr(a.created_at, 'isoformat') else str(a.created_at), 
+            a.updated_at.isoformat() if hasattr(a.updated_at, 'isoformat') else str(a.updated_at)
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=soar_alerts_report.csv"}
+    )
+
+
 # ── GET /alerts/{alert_id} ────────────────────────────────────────────────────
 @router.get(
     "/{alert_id}",
+
     response_model=AlertResponse,
     summary="Get a single alert by ID",
     description="Retrieve a specific security alert by its integer primary key.",

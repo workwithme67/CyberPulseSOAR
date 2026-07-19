@@ -1,29 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 :root {
   color-scheme: dark;
-  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-  color: #e6edf7;
+  color: #e2e8f0;
   background:
-    radial-gradient(circle at top left, rgba(69, 114, 202, 0.22), transparent 30%),
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 26%),
-    linear-gradient(180deg, #08111f 0%, #0c1728 48%, #09111c 100%);
+    radial-gradient(circle at 10% 20%, rgba(0, 229, 255, 0.08), transparent 45%),
+    radial-gradient(circle at 90% 10%, rgba(255, 109, 0, 0.07), transparent 40%),
+    linear-gradient(180deg, #050a12 0%, #08101a 50%, #04070d 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --bg: #08111f;
-  --panel: rgba(10, 18, 34, 0.82);
-  --panel-border: rgba(148, 163, 184, 0.18);
-  --text: #e6edf7;
-  --muted: #99a6ba;
-  --accent: #65d6ff;
-  --accent-2: #f97316;
-  --good: #37d67a;
-  --warning: #f5c542;
-  --danger: #ff6b6b;
-  --shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+  --bg: #050a12;
+  --panel: rgba(9, 16, 28, 0.72);
+  --panel-border: rgba(255, 255, 255, 0.07);
+  --panel-border-glow: rgba(0, 229, 255, 0.15);
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #00e5ff;
+  --accent-glow: rgba(0, 229, 255, 0.35);
+  --accent-2: #ff6d00;
+  --accent-2-glow: rgba(255, 109, 0, 0.3);
+  --good: #00e676;
+  --good-glow: rgba(0, 230, 118, 0.3);
+  --warning: #ffd600;
+  --danger: #ff3d00;
+  --danger-glow: rgba(255, 61, 0, 0.3);
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
+
 
 * {
   box-sizing: border-box;
@@ -113,15 +121,17 @@ body::before {
 .panel h2,
 .note-panel h2 {
   margin: 0;
-  font-family: 'Georgia', 'Times New Roman', serif;
-  letter-spacing: -0.03em;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .hero-copy h1 {
-  font-size: clamp(2.1rem, 4vw, 4rem);
-  line-height: 1.02;
-  max-width: 12ch;
+  font-size: clamp(2rem, 3.5vw, 3.2rem);
+  line-height: 1.1;
+  max-width: 20ch;
 }
+
 
 .eyebrow,
 .section-label {
@@ -860,17 +870,20 @@ body::before {
 /* Triaging alerts row selection interaction */
 .alert-row-clickable {
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 .alert-row-clickable:hover {
-  background: rgba(101, 214, 255, 0.05) !important;
+  background: rgba(0, 229, 255, 0.05) !important;
+  transform: translateX(4px);
 }
 
 .alert-row-clickable.selected {
-  background: rgba(101, 214, 255, 0.08) !important;
-  border-left: 3px solid var(--accent);
+  background: rgba(0, 229, 255, 0.09) !important;
+  border-left: 4px solid var(--accent);
 }
+
 
 /* Animations */
 @keyframes fadeIn {
@@ -882,3 +895,181 @@ body::before {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+/* Threat Intel Explorer tabs & panel elements */
+.ti-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ti-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ti-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ti-tab-btn.active {
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ti-content-card {
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 0.88rem;
+  margin-top: 8px;
+}
+
+.ti-grid-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.ti-badge-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ti-badge-pill span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.ti-badge-pill strong {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+/* Toast system styles */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+  width: 100%;
+}
+
+.toast {
+  background: rgba(9, 16, 28, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: var(--text);
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
+}
+
+.toast-success {
+  border-left: 4px solid var(--good);
+}
+
+.toast-error {
+  border-left: 4px solid var(--danger);
+}
+
+.toast-info {
+  border-left: 4px solid var(--accent);
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 4px;
+}
+
+.toast-close:hover {
+  color: var(--text);
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* integration widget styling */
+.integration-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.integration-item {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.dot-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.dot-indicator.live {
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+}
+
+.dot-indicator.mock {
+  background: var(--warning);
+  box-shadow: 0 0 8px var(--warning);
+}
+
+.dot-indicator.connected {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+

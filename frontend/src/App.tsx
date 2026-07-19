@@ -81,7 +81,14 @@ type UserProfile = {
   is_active: boolean;
 };
 
+type Toast = {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+};
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
+
 const refreshIntervalMs = 15_000;
 
 function formatNumber(value: number): string {
@@ -150,7 +157,21 @@ export default function App() {
   const [playbookRunning, setPlaybookRunning] = useState(false);
   const [playbookMessage, setPlaybookMessage] = useState<string | null>(null);
 
+  const [activeTiData, setActiveTiData] = useState<any>(null);
+  const [tiTab, setTiTab] = useState<'abuseipdb' | 'virustotal' | 'ipinfo'>('abuseipdb');
+  const [tiDiagnostics, setTiDiagnostics] = useState<any>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
   // Helper headers provider
+
   const headers = useMemo(() => {
     const r: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -179,6 +200,17 @@ export default function App() {
         setUserProfile(null);
       });
   }, [token, headers]);
+
+  // Load TI Diagnostics on mount
+  useEffect(() => {
+    fetch(`${apiBase}/health/ti-diagnostics`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load TI diagnostics');
+        return res.json();
+      })
+      .then((data) => setTiDiagnostics(data))
+      .catch((err) => console.error("Error loading TI diagnostics", err));
+  }, []);
 
   // Load registered playbooks if authenticated
   useEffect(() => {
@@ -265,12 +297,56 @@ export default function App() {
     }
   };
 
+  const downloadCSV = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error("Failed to download CSV");
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addToast("CSV Report downloaded successfully", "success");
+    } catch (e) {
+      addToast("Failed to download CSV Report", "error");
+    }
+  };
+
   const handleSelectAlert = (alert: Alert) => {
     setSelectedAlert(alert);
     setSelectedAlertTimeline([]);
+    setActiveTiData(null);
     void fetchTimeline(alert.alert_id);
+
+    if (alert.enrichment_data) {
+      try {
+        const parsed = JSON.parse(alert.enrichment_data);
+        setActiveTiData(parsed);
+      } catch (e) {
+        console.error("Failed to parse cached enrichment_data", e);
+      }
+    } else {
+      void fetchLiveTi(alert.id);
+    }
+
     setPlaybookMessage(null);
     setPlaybookNotes('');
+  };
+
+  const fetchLiveTi = async (id: number) => {
+    try {
+      const res = await fetch(`${apiBase}/alerts/${id}/enrich`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.threat_intelligence) {
+          setActiveTiData(data.threat_intelligence);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch live TI report", e);
+    }
   };
 
   // Change Status Handler
@@ -286,11 +362,12 @@ export default function App() {
         setSelectedAlert(updated);
         void fetchTimeline(updated.alert_id);
         void loadDashboardData(false);
+        addToast(`Alert status changed to ${statusVal}`, "success");
       } else {
-        alert('Failed to update status');
+        addToast('Failed to update status', "error");
       }
     } catch (err) {
-      alert('Error updating status: ' + String(err));
+      addToast('Error updating status', "error");
     }
   };
 
@@ -298,17 +375,31 @@ export default function App() {
   const handleRefreshTI = async () => {
     if (!selectedAlert) return;
     try {
+      addToast("Synchronizing threat intelligence...", "info");
       const res = await fetch(`${apiBase}/alerts/${selectedAlert.id}/enrich`, { headers });
       if (res.ok) {
-        const updated = await res.json() as Alert;
-        setSelectedAlert(updated);
-        void fetchTimeline(updated.alert_id);
-        void loadDashboardData(false);
+        const data = await res.json();
+        if (data.threat_intelligence) {
+          setActiveTiData(data.threat_intelligence);
+          addToast("Threat intelligence report synchronized", "success");
+          
+          // Re-fetch the alert to get the updated DB state
+          const alertRes = await fetch(`${apiBase}/alerts/${selectedAlert.id}`, { headers });
+          if (alertRes.ok) {
+            const alertData = await alertRes.json() as Alert;
+            setSelectedAlert(alertData);
+          }
+          void fetchTimeline(selectedAlert.alert_id);
+          void loadDashboardData(false);
+        }
+      } else {
+        addToast('Failed to sync threat intelligence', "error");
       }
     } catch (err) {
-      alert('Error refreshing threat intelligence');
+      addToast('Error refreshing threat intelligence', "error");
     }
   };
+
 
   // Ingest Alert Submit Handler
   const handleIngestSubmit = async (e: React.FormEvent) => {
@@ -328,12 +419,13 @@ export default function App() {
           description: '',
         });
         void loadDashboardData(true);
+        addToast("Alert ingested and enriched successfully", "success");
       } else {
         const txt = await res.text();
-        alert('Validation error during alert ingestion: ' + txt);
+        addToast('Validation error during alert ingestion: ' + txt, "error");
       }
     } catch (err) {
-      alert('Network error in alert creation');
+      addToast('Network error in alert creation', "error");
     }
   };
 
@@ -354,7 +446,7 @@ export default function App() {
 
       if (!res.ok) {
         const errText = await res.text();
-        alert(`Authentication failed: ${errText}`);
+        addToast(`Authentication failed: ${errText}`, "error");
         return;
       }
 
@@ -363,12 +455,13 @@ export default function App() {
         localStorage.setItem('soar_jwt_token', data.access_token);
         setToken(data.access_token);
         setShowAuthModal(false);
+        addToast(`Successfully logged in as ${authForm.username}`, "success");
       } else {
-        alert('Account registered! You can now log in.');
+        addToast('Account registered! You can now log in.', "success");
         setAuthType('login');
       }
     } catch (err) {
-      alert('Authentication error');
+      addToast('Authentication error', "error");
     }
   };
 
@@ -377,6 +470,7 @@ export default function App() {
     localStorage.removeItem('soar_jwt_token');
     setToken(null);
     setUserProfile(null);
+    addToast("Logged out successfully", "info");
   };
 
   // Playbook execution handler
@@ -385,6 +479,7 @@ export default function App() {
     setPlaybookRunning(true);
     setPlaybookMessage(null);
     try {
+      addToast(`Triggering playbook ${selectedPlaybook}...`, "info");
       const res = await fetch(`${apiBase}/playbooks/execute`, {
         method: 'POST',
         headers,
@@ -402,16 +497,20 @@ export default function App() {
         setPlaybookNotes('');
         void fetchTimeline(selectedAlert.alert_id);
         void loadDashboardData(false);
+        addToast(`Playbook ${data.playbook_name} executed successfully!`, "success");
       } else {
         const txt = await res.text();
         setPlaybookMessage(`Error: ${txt}`);
+        addToast(`Playbook execution failed: ${txt}`, "error");
       }
     } catch (err) {
       setPlaybookMessage('Connection error executing playbook');
+      addToast('Connection error executing playbook', "error");
     } finally {
       setPlaybookRunning(false);
     }
   };
+
 
   // Deriving descriptive values
   const activityLabel = useMemo(() => {
@@ -572,12 +671,24 @@ export default function App() {
 
               {/* Alert Ingestion Table */}
               <article className="panel alerts-panel">
-                <div className="panel-header">
+                <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <p className="section-label">Incident triage feed</p>
                     <h2>Latest activities</h2>
                   </div>
-                  <span className="panel-chip">{alerts?.count ?? 0} returned</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadCSV(`${apiBase}/alerts/export/csv`, 'soar_alerts_report.csv');
+                      }}
+                      title="Download full CSV report"
+                    >
+                      📥 Export CSV
+                    </button>
+                    <span className="panel-chip">{alerts?.count ?? 0} returned</span>
+                  </div>
                 </div>
                 <div className="alerts-table">
                   {(alerts?.alerts ?? []).map((alert) => (
@@ -618,6 +729,30 @@ export default function App() {
                   <StatusRow label="Threat Intel Malicious Hits" value={summary?.malicious_ips ?? 0} />
                   <StatusRow label="Threat Intel Suspicious Hits" value={summary?.suspicious_ips ?? 0} />
                 </div>
+
+                <p className="section-label" style={{ marginTop: '18px', marginBottom: '8px' }}>System integration checklist</p>
+                <div className="integration-list">
+                  <div className="integration-item">
+                    <span className="dot-indicator connected" />
+                    <span>SQLite DB: Connected</span>
+                  </div>
+                  <div className="integration-item">
+                    <span className={`dot-indicator ${tiDiagnostics?.abuseipdb?.status === 'live' ? 'live' : 'mock'}`} />
+                    <span>AbuseIPDB: {tiDiagnostics?.abuseipdb?.status === 'live' ? 'Live' : 'Mock'}</span>
+                  </div>
+                  <div className="integration-item">
+                    <span className={`dot-indicator ${tiDiagnostics?.virustotal?.status === 'live' ? 'live' : 'mock'}`} />
+                    <span>VirusTotal: {tiDiagnostics?.virustotal?.status === 'live' ? 'Live' : 'Mock'}</span>
+                  </div>
+                  <div className="integration-item">
+                    <span className={`dot-indicator ${tiDiagnostics?.ipinfo?.status === 'live' ? 'live' : 'mock'}`} />
+                    <span>IPInfo: {tiDiagnostics?.ipinfo?.status === 'live' ? 'Live' : 'Mock'}</span>
+                  </div>
+                  <div className="integration-item">
+                    <span className="dot-indicator live" />
+                    <span>Playbooks: Active</span>
+                  </div>
+                </div>
               </div>
               <div className="panel note-panel">
                 <p className="section-label">Security Orchestration, Automation & Response</p>
@@ -633,14 +768,23 @@ export default function App() {
         ) : (
           /* Playbook history tab view */
           <section className="panel">
-            <div className="panel-header">
+            <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p className="section-label">Audit Logs</p>
                 <h2>Playbook execution history</h2>
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={loadExecutionsHistory}>
-                🔄 Refresh Logs
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  onClick={() => downloadCSV(`${apiBase}/playbooks/export/csv`, 'soar_playbook_history.csv')}
+                  title="Export playbook logs to CSV"
+                >
+                  📥 Export Logs CSV
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={loadExecutionsHistory}>
+                  🔄 Refresh Logs
+                </button>
+              </div>
             </div>
             
             <table className="history-table">
@@ -758,6 +902,140 @@ export default function App() {
                       {selectedAlert.description}
                     </p>
                   </div>
+                )}
+              </section>
+
+              {/* Threat Intelligence Explorer */}
+              <section className="drawer-section">
+                <span className="drawer-section-title">Threat Intelligence Explorer</span>
+                {activeTiData ? (
+                  <>
+                    <div className="ti-tabs">
+                      <button 
+                        type="button"
+                        className={`ti-tab-btn ${tiTab === 'abuseipdb' ? 'active' : ''}`}
+                        onClick={() => setTiTab('abuseipdb')}
+                      >
+                        AbuseIPDB
+                      </button>
+                      <button 
+                        type="button"
+                        className={`ti-tab-btn ${tiTab === 'virustotal' ? 'active' : ''}`}
+                        onClick={() => setTiTab('virustotal')}
+                      >
+                        VirusTotal
+                      </button>
+                      <button 
+                        type="button"
+                        className={`ti-tab-btn ${tiTab === 'ipinfo' ? 'active' : ''}`}
+                        onClick={() => setTiTab('ipinfo')}
+                      >
+                        IPInfo (Geo)
+                      </button>
+                    </div>
+
+                    {tiTab === 'abuseipdb' && (
+                      <div className="ti-content-card">
+                        <div className="ti-grid-info">
+                          <div className="ti-badge-pill">
+                            <span>Confidence Score</span>
+                            <strong style={{ color: activeTiData.abuseipdb?.abuse_confidence_score > 50 ? 'var(--danger)' : 'var(--good)' }}>
+                              {activeTiData.abuseipdb?.abuse_confidence_score}%
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Total Reports</span>
+                            <strong>{activeTiData.abuseipdb?.total_reports}</strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>ISP / Carrier</span>
+                            <strong style={{ fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {activeTiData.abuseipdb?.isp || 'Unknown'}
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Country</span>
+                            <strong>{activeTiData.abuseipdb?.country_code || 'Unknown'}</strong>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
+                          Source: {activeTiData.abuseipdb?.source || 'Mock'}
+                        </div>
+                      </div>
+                    )}
+
+                    {tiTab === 'virustotal' && (
+                      <div className="ti-content-card">
+                        <div className="ti-grid-info">
+                          <div className="ti-badge-pill">
+                            <span>Flagged Engines</span>
+                            <strong style={{ color: activeTiData.virustotal?.malicious_count > 0 ? 'var(--danger)' : 'var(--good)' }}>
+                              {activeTiData.virustotal?.malicious_count} / {activeTiData.virustotal?.total_engines || 90}
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Reputation</span>
+                            <strong style={{ color: activeTiData.virustotal?.reputation < 0 ? 'var(--danger)' : 'var(--good)' }}>
+                              {activeTiData.virustotal?.reputation}
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>AS Owner</span>
+                            <strong style={{ fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {activeTiData.virustotal?.as_owner || 'Unknown'}
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Regional Registry</span>
+                            <strong>{activeTiData.virustotal?.regional_internet_registry || 'Unknown'}</strong>
+                          </div>
+                        </div>
+                        {activeTiData.virustotal?.tags && activeTiData.virustotal.tags.length > 0 && (
+                          <div style={{ marginTop: '12px' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Analysis Tags</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                              {activeTiData.virustotal.tags.map((t: string) => (
+                                <span key={t} className="badge" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
+                          Source: {activeTiData.virustotal?.source || 'Mock'}
+                        </div>
+                      </div>
+                    )}
+
+                    {tiTab === 'ipinfo' && (
+                      <div className="ti-content-card">
+                        <div className="ti-grid-info">
+                          <div className="ti-badge-pill">
+                            <span>City, Region</span>
+                            <strong>{activeTiData.ipinfo?.city || 'Unknown'}, {activeTiData.ipinfo?.region}</strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Country</span>
+                            <strong>{activeTiData.ipinfo?.country || 'Unknown'}</strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Organization</span>
+                            <strong style={{ fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {activeTiData.ipinfo?.org || 'Unknown'}
+                            </strong>
+                          </div>
+                          <div className="ti-badge-pill">
+                            <span>Timezone</span>
+                            <strong>{activeTiData.ipinfo?.timezone || 'Unknown'}</strong>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
+                          Source: {activeTiData.ipinfo?.source || 'Mock'}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="empty-state">Ingesting threat intelligence reports...</p>
                 )}
               </section>
 
@@ -1003,6 +1281,22 @@ export default function App() {
           </div>
         </div>
       )}
+
+
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            <span>{t.message}</span>
+            <button 
+              type="button" 
+              className="toast-close" 
+              onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
