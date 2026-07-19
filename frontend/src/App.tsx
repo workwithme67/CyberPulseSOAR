@@ -237,11 +237,19 @@ export default function App() {
     try {
       if (showSyncIndicator) setLoading(true);
       setError(null);
+
+      const fetchJson = async <T,>(url: string, options?: RequestInit): Promise<T> => {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch data (status ${res.status})`);
+        }
+        return res.json() as Promise<T>;
+      };
       
       const [summaryData, riskData, alertsData] = await Promise.all([
-        fetch(`${apiBase}/dashboard/summary`, { headers }).then((res) => res.json() as Promise<DashboardSummary>),
-        fetch(`${apiBase}/dashboard/risk-distribution`, { headers }).then((res) => res.json() as Promise<RiskDistributionResponse>),
-        fetch(`${apiBase}/dashboard/recent-alerts?limit=15`, { headers }).then((res) => res.json() as Promise<RecentAlertsResponse>),
+        fetchJson<DashboardSummary>(`${apiBase}/dashboard/summary`, { headers }),
+        fetchJson<RiskDistributionResponse>(`${apiBase}/dashboard/risk-distribution`, { headers }),
+        fetchJson<RecentAlertsResponse>(`${apiBase}/dashboard/recent-alerts?limit=15`, { headers }),
       ]);
 
       setSummary(summaryData);
@@ -519,7 +527,7 @@ export default function App() {
   }, [summary]);
 
   const strongestBucket = useMemo(() => {
-    if (!risk || risk.buckets.length === 0) return null;
+    if (!risk || !risk.buckets || risk.buckets.length === 0) return null;
     return risk.buckets.reduce((highest, bucket) => (bucket.count > highest.count ? bucket : highest));
   }, [risk]);
 
@@ -665,7 +673,7 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  {risk?.buckets.length === 0 ? <p className="empty-state">No risk data returned yet.</p> : null}
+                  {(!risk?.buckets || risk.buckets.length === 0) ? <p className="empty-state">No risk data returned yet.</p> : null}
                 </div>
               </article>
 
