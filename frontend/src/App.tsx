@@ -452,9 +452,14 @@ export default function App() {
             role: authForm.role 
           };
 
+      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        reqHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify(payload),
       });
 
