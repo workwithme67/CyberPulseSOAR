@@ -148,6 +148,7 @@ export default function App() {
   
   const [authForm, setAuthForm] = useState({
     username: '',
+    email: '',
     password: '',
     role: 'SOCAnalyst',
   });
@@ -444,7 +445,12 @@ export default function App() {
       const url = authType === 'login' ? `${apiBase}/auth/login` : `${apiBase}/auth/register`;
       const payload = authType === 'login' 
         ? { username: authForm.username, password: authForm.password }
-        : { username: authForm.username, password: authForm.password, role: authForm.role };
+        : { 
+            username: authForm.username, 
+            email: authForm.email || `${authForm.username}@soar.local`,
+            password: authForm.password, 
+            role: authForm.role 
+          };
 
       const res = await fetch(url, {
         method: 'POST',
@@ -1232,13 +1238,28 @@ export default function App() {
                 />
               </div>
 
+              {authType === 'register' && (
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input 
+                    type="email" 
+                    className="input-field" 
+                    required
+                    placeholder="Enter email address..."
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  />
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Password</label>
                 <input 
                   type="password" 
                   className="input-field" 
                   required
-                  placeholder="Enter secure password..."
+                  minLength={8}
+                  placeholder="Enter secure password (min 8 characters)..."
                   value={authForm.password}
                   onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                 />
