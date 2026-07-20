@@ -118,9 +118,10 @@ app.include_router(playbooks.router, prefix="/playbooks", tags=["Playbooks"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
+@app.get("/health", tags=["Health"], summary="Health check")
 @app.get("/", tags=["Health"], summary="Health check")
 def health_check() -> dict:
-    """Root health-check — returns running status and version."""
+    """Root/Health health-check — returns running status and version."""
     return {
         "status":  "running",
         "version": "0.5.0",

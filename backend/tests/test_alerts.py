@@ -116,6 +116,17 @@ class TestHealthCheck:
         response = client.get("/")
         assert "version" in response.json()
 
+    def test_health_alias_returns_200(self):
+        response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_health_alias_response_body(self):
+        response = client.get("/health")
+        data = response.json()
+        assert data["status"] == "running"
+        assert data["project"] == "SOAR Incident Containment Engine"
+        assert "version" in data
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Alert Creation – POST /alerts
