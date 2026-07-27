@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type DashboardSummary = {
   total_alerts: number;
@@ -111,7 +111,7 @@ function ageLabel(isoDate: string): string {
 
 export default function App() {
   // Tabs & Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'analytics'>('dashboard');
 
   // API Data States
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -162,6 +162,30 @@ export default function App() {
   const [tiTab, setTiTab] = useState<'abuseipdb' | 'virustotal' | 'ipinfo'>('abuseipdb');
   const [tiDiagnostics, setTiDiagnostics] = useState<any>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Search & filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterSeverity, setFilterSeverity] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'time' | 'risk' | 'severity'>('time');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Live pulse
+  const [isPulsing, setIsPulsing] = useState(false);
+  const [copiedIp, setCopiedIp] = useState(false);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedAlert(null);
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -233,6 +257,25 @@ export default function App() {
       .catch(() => setPlaybooks([]));
   }, [token, headers]);
 
+  const severityOrder: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+
+  // Filtered + sorted alerts derived state
+  const filteredAlerts = useMemo(() => {
+    const list = (alerts?.alerts ?? []).filter((a) => {
+      const matchSearch =
+        !searchQuery ||
+        a.alert_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        a.source_ip.includes(searchQuery) ||
+        a.alert_id.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSeverity = filterSeverity === 'All' || a.severity === filterSeverity;
+      const matchStatus = filterStatus === 'All' || a.status === filterStatus;
+      return matchSearch && matchSeverity && matchStatus;
+    });
+    if (sortBy === 'risk') return [...list].sort((a, b) => b.risk_score - a.risk_score);
+    if (sortBy === 'severity') return [...list].sort((a, b) => (severityOrder[b.severity] ?? 0) - (severityOrder[a.severity] ?? 0));
+    return list; // default: time (API order)
+  }, [alerts, searchQuery, filterSeverity, filterStatus, sortBy]);
+
   // Core Data Loading Function
   const loadDashboardData = async (showSyncIndicator = true) => {
     try {
@@ -258,6 +301,8 @@ export default function App() {
       setAlerts(alertsData);
       setLastUpdated(new Date().toLocaleTimeString());
       setLoading(false);
+      setIsPulsing(true);
+      setTimeout(() => setIsPulsing(false), 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sync dashboard analytics');
       setLoading(false);
@@ -265,13 +310,12 @@ export default function App() {
   };
 
   // Sync Interval
+  const stableLoad = useCallback(loadDashboardData, [token]);
   useEffect(() => {
-    void loadDashboardData(true);
-    const interval = setInterval(() => {
-      void loadDashboardData(false);
-    }, refreshIntervalMs);
+    void stableLoad(true);
+    const interval = setInterval(() => void stableLoad(false), refreshIntervalMs);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [stableLoad]);
 
   // Sync playbook executions history
   const loadExecutionsHistory = async () => {
@@ -500,6 +544,17 @@ export default function App() {
     addToast("Logged out successfully", "info");
   };
 
+  const handleCopyIp = (ip: string) => {
+    navigator.clipboard.writeText(ip).then(() => {
+      setCopiedIp(true);
+      setTimeout(() => setCopiedIp(false), 1800);
+      addToast(`Copied ${ip} to clipboard`, 'info');
+    });
+  };
+
+  const riskColor = (score: number) =>
+    score >= 76 ? 'var(--danger)' : score >= 51 ? 'var(--accent-2)' : score >= 26 ? 'var(--warning)' : 'var(--good)';
+
   // Playbook execution handler
   const handleExecutePlaybook = async () => {
     if (!selectedAlert || !selectedPlaybook) return;
@@ -559,7 +614,11 @@ export default function App() {
         {/* Navigation & Controls Header */}
         <header className="header-row">
           <div className="header-brand">
-            <h1>🛡️ SOAR Containment Console</h1>
+            <h1>🛡️ CyberPulse SOAR</h1>
+            <div className="live-indicator">
+              <span className={`pulse-dot ${isPulsing ? 'syncing' : ''}`} />
+              <span className="live-label">{loading ? 'Syncing...' : 'Live'}</span>
+            </div>
           </div>
           
           <div className="header-controls">
@@ -569,6 +628,12 @@ export default function App() {
                 onClick={() => setActiveTab('dashboard')}
               >
                 Dashboard
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+                onClick={() => setActiveTab('analytics')}
+              >
+                Analytics
               </button>
               <button 
                 className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
@@ -613,6 +678,51 @@ export default function App() {
 
         {activeTab === 'dashboard' ? (
           <>
+            {/* Search & Filter Bar */}
+            <section className="filter-bar">
+              <div className="search-wrap">
+                <span className="search-icon">🔍</span>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  className="search-input"
+                  placeholder="Search alerts by type, IP, or ID… (Ctrl+K)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+                )}
+              </div>
+              <div className="filter-chips">
+                {(['All', 'Low', 'Medium', 'High', 'Critical'] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={`filter-chip ${filterSeverity === s ? 'active severity-' + s.toLowerCase() : ''}`}
+                    onClick={() => setFilterSeverity(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="filter-chips">
+                {(['All', 'Open', 'Investigating', 'Resolved'] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={`filter-chip ${filterStatus === s ? 'active' : ''}`}
+                    onClick={() => setFilterStatus(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {(searchQuery || filterSeverity !== 'All' || filterStatus !== 'All') && (
+                <button className="btn btn-secondary btn-sm" onClick={() => { setSearchQuery(''); setFilterSeverity('All'); setFilterStatus('All'); }}>
+                  Clear Filters
+                </button>
+              )}
+            </section>
+
             {/* Hero / Summary Section */}
             <section className="hero-card">
               <div className="hero-copy">
@@ -642,26 +752,31 @@ export default function App() {
             {error ? <section className="banner error">{error}</section> : null}
 
             {/* Top Metrics Row */}
-            <section className="metrics-grid">
+            <section className="metrics-grid metrics-grid-5">
               <article className="metric-card">
                 <span className="metric-label">Total Alerts</span>
                 <strong className="metric-value">{summary?.total_alerts ?? 0}</strong>
                 <span className="metric-tone">Environment</span>
               </article>
               <article className="metric-card metric-open">
-                <span className="metric-label">Open Alerts</span>
+                <span className="metric-label">Open</span>
                 <strong className="metric-value">{summary?.open_alerts ?? 0}</strong>
                 <span className="metric-tone">Triage Queue</span>
               </article>
+              <article className="metric-card metric-investigating">
+                <span className="metric-label">Investigating</span>
+                <strong className="metric-value">{summary?.investigating_alerts ?? 0}</strong>
+                <span className="metric-tone">In Progress</span>
+              </article>
               <article className="metric-card metric-resolved">
-                <span className="metric-label">Resolved Alerts</span>
+                <span className="metric-label">Resolved</span>
                 <strong className="metric-value">{summary?.resolved_alerts ?? 0}</strong>
                 <span className="metric-tone">Mitigated</span>
               </article>
               <article className="metric-card metric-critical">
-                <span className="metric-label">Critical Alerts</span>
+                <span className="metric-label">Critical</span>
                 <strong className="metric-value">{summary?.critical_alerts ?? 0}</strong>
-                <span className="metric-tone">Mitigation Pending</span>
+                <span className="metric-tone">Pending Action</span>
               </article>
             </section>
 
@@ -703,7 +818,15 @@ export default function App() {
                     <p className="section-label">Incident triage feed</p>
                     <h2>Latest activities</h2>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="sort-control">
+                      <span>Sort:</span>
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                        <option value="time">Latest</option>
+                        <option value="risk">Risk Score</option>
+                        <option value="severity">Severity</option>
+                      </select>
+                    </div>
                     <button 
                       className="btn btn-secondary btn-sm" 
                       onClick={(e) => {
@@ -714,11 +837,25 @@ export default function App() {
                     >
                       📥 Export CSV
                     </button>
-                    <span className="panel-chip">{alerts?.count ?? 0} returned</span>
+                    <span className="panel-chip">
+                      {filteredAlerts.length !== (alerts?.count ?? 0)
+                        ? `${filteredAlerts.length} / ${alerts?.count ?? 0}`
+                        : `${alerts?.count ?? 0} alerts`}
+                    </span>
                   </div>
                 </div>
                 <div className="alerts-table">
-                  {(alerts?.alerts ?? []).map((alert) => (
+                  {filteredAlerts.length === 0 && !loading && (
+                    <p className="empty-state">No alerts match the current filters.</p>
+                  )}
+                  {loading && (alerts?.alerts.length ?? 0) === 0 && (
+                    <>
+                      <div className="skeleton-row" />
+                      <div className="skeleton-row" style={{ opacity: 0.7 }} />
+                      <div className="skeleton-row" style={{ opacity: 0.4 }} />
+                    </>
+                  )}
+                  {filteredAlerts.map((alert) => (
                     <div 
                       className={`alert-row alert-row-clickable ${selectedAlert?.id === alert.id ? 'selected' : ''}`} 
                       key={alert.id}
@@ -736,13 +873,22 @@ export default function App() {
                         <span className={`badge badge-status badge-${alert.status.toLowerCase()}`}>{alert.status}</span>
                         <p>{ageLabel(alert.created_at)}</p>
                       </div>
-                      <div>
-                        <strong>{alert.risk_score.toFixed(1)}</strong>
-                        <p>{alert.threat_verdict ?? 'Unknown'}</p>
+                      <div className="alert-risk-col">
+                        <strong style={{ color: riskColor(alert.risk_score) }}>{alert.risk_score.toFixed(1)}</strong>
+                        <div className="risk-mini-bar-track">
+                          <div
+                            className="risk-mini-bar-fill"
+                            style={{
+                              width: `${alert.risk_score}%`,
+                              background: riskColor(alert.risk_score),
+                            }}
+                          />
+                        </div>
+                        <p style={{ fontSize: '0.72rem' }}>{alert.threat_verdict ?? 'Unknown'}</p>
                       </div>
                     </div>
                   ))}
-                  {!loading && (alerts?.alerts.length ?? 0) === 0 ? <p className="empty-state">No alerts available in database. Create one above!</p> : null}
+                  {!loading && (alerts?.alerts.length ?? 0) === 0 ? <p className="empty-state">No alerts in database. Ingest one above!</p> : null}
                 </div>
               </article>
             </section>
@@ -792,6 +938,111 @@ export default function App() {
               </div>
             </section>
           </>
+        ) : activeTab === 'analytics' ? (
+          /* Analytics tab */
+          <section className="analytics-grid">
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <p className="section-label">Severity breakdown</p>
+                  <h2>Alert distribution by severity</h2>
+                </div>
+              </div>
+              <div className="bars">
+                {(['critical', 'high', 'medium', 'low'] as const).map((sev) => {
+                  const count = summary?.[`${sev}_alerts` as keyof DashboardSummary] as number ?? 0;
+                  const total = summary?.total_alerts || 1;
+                  const pct = (count / total) * 100;
+                  return (
+                    <div className="bar-row" key={sev}>
+                      <div className="bar-meta">
+                        <span className="bar-label" style={{ textTransform: 'capitalize' }}>{sev}</span>
+                      </div>
+                      <div className="bar-track">
+                        <div className={`bar-fill bar-${sev}`} style={{ width: `${Math.max(pct, count > 0 ? 4 : 0)}%` }} />
+                      </div>
+                      <div className="bar-values">
+                        <strong>{count}</strong>
+                        <span>{pct.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <p className="section-label">Threat posture</p>
+                  <h2>Key risk indicators</h2>
+                </div>
+              </div>
+              <div className="kri-grid">
+                <div className="kri-card">
+                  <span className="kri-label">Avg Risk Score</span>
+                  <strong className="kri-value" style={{ color: (summary?.avg_risk_score ?? 0) > 60 ? 'var(--danger)' : 'var(--good)' }}>
+                    {summary?.avg_risk_score?.toFixed(1) ?? '—'}
+                  </strong>
+                  <span className="kri-sub">out of 100</span>
+                </div>
+                <div className="kri-card">
+                  <span className="kri-label">Malicious IPs</span>
+                  <strong className="kri-value" style={{ color: 'var(--danger)' }}>{summary?.malicious_ips ?? 0}</strong>
+                  <span className="kri-sub">TI confirmed</span>
+                </div>
+                <div className="kri-card">
+                  <span className="kri-label">Suspicious IPs</span>
+                  <strong className="kri-value" style={{ color: 'var(--warning)' }}>{summary?.suspicious_ips ?? 0}</strong>
+                  <span className="kri-sub">Under review</span>
+                </div>
+                <div className="kri-card">
+                  <span className="kri-label">Blocked IPs</span>
+                  <strong className="kri-value" style={{ color: 'var(--accent)' }}>{summary?.blocked_ips ?? 0}</strong>
+                  <span className="kri-sub">Firewall enforced</span>
+                </div>
+                <div className="kri-card">
+                  <span className="kri-label">High Severity</span>
+                  <strong className="kri-value" style={{ color: 'var(--accent-2)' }}>{summary?.high_alerts ?? 0}</strong>
+                  <span className="kri-sub">Needs triage</span>
+                </div>
+                <div className="kri-card">
+                  <span className="kri-label">Resolution Rate</span>
+                  <strong className="kri-value" style={{ color: 'var(--good)' }}>
+                    {summary?.total_alerts ? ((summary.resolved_alerts / summary.total_alerts) * 100).toFixed(1) + '%' : '—'}
+                  </strong>
+                  <span className="kri-sub">of total alerts</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-header">
+                <div>
+                  <p className="section-label">Risk score distribution</p>
+                  <h2>Weighted score bands</h2>
+                </div>
+                {strongestBucket && <span className="panel-chip">Peak band: {strongestBucket.label}</span>}
+              </div>
+              <div className="bars">
+                {(risk?.buckets ?? []).map((bucket) => (
+                  <div className="bar-row" key={bucket.label}>
+                    <div className="bar-meta">
+                      <span className="bar-label">{bucket.label}</span>
+                      <span className="bar-range">{bucket.range}</span>
+                    </div>
+                    <div className="bar-track">
+                      <div className={`bar-fill bar-${bucket.label.toLowerCase()}`} style={{ width: `${Math.max(bucket.pct, bucket.count > 0 ? 6 : 0)}%` }} />
+                    </div>
+                    <div className="bar-values">
+                      <strong>{formatNumber(bucket.count)}</strong>
+                      <span>{formatPercent(bucket.pct)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
         ) : (
           /* Playbook history tab view */
           <section className="panel">
@@ -862,8 +1113,14 @@ export default function App() {
           <aside className="drawer-content">
             <header className="drawer-header">
               <div className="drawer-title-area">
-                <span className="eyebrow">{selectedAlert.alert_id}</span>
+                <div className="drawer-nav">
+                  <span>Alerts</span> › <span>{selectedAlert.alert_id}</span>
+                </div>
                 <h2>{selectedAlert.alert_type}</h2>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <span className={`badge badge-${selectedAlert.severity.toLowerCase()}`}>{selectedAlert.severity}</span>
+                  <span className={`badge badge-status badge-${selectedAlert.status.toLowerCase()}`}>{selectedAlert.status}</span>
+                </div>
               </div>
               <button className="close-btn" onClick={() => setSelectedAlert(null)}>
                 &times;
@@ -904,13 +1161,30 @@ export default function App() {
                 <div className="info-grid">
                   <div className="info-item">
                     <span>Source IP Address</span>
-                    <strong>{selectedAlert.source_ip}</strong>
+                    <strong>
+                      {selectedAlert.source_ip}
+                      <button className="copy-btn" onClick={() => handleCopyIp(selectedAlert.source_ip)}>
+                        {copiedIp ? '✓ Copied' : 'Copy'}
+                      </button>
+                    </strong>
                   </div>
                   <div className="info-item">
-                    <span>Calculated Risk Score</span>
-                    <strong style={{ color: selectedAlert.risk_score >= 76 ? 'var(--danger)' : 'inherit' }}>
-                      {selectedAlert.risk_score.toFixed(1)} / 100
-                    </strong>
+                    <span>Risk Score</span>
+                    <div className="threat-meter">
+                      <strong style={{ color: riskColor(selectedAlert.risk_score) }}>
+                        {selectedAlert.risk_score.toFixed(1)} / 100
+                      </strong>
+                      <div className="threat-meter-track">
+                        <div
+                          className="threat-meter-fill"
+                          style={{
+                            width: `${selectedAlert.risk_score}%`,
+                            background: `linear-gradient(90deg, ${riskColor(selectedAlert.risk_score)}, ${riskColor(selectedAlert.risk_score)}88)`,
+                          }}
+                        />
+                      </div>
+                      <div className="threat-meter-labels"><span>0</span><span>50</span><span>100</span></div>
+                    </div>
                   </div>
                   <div className="info-item">
                     <span>Threat Intel Verdict</span>
@@ -930,6 +1204,10 @@ export default function App() {
                     </p>
                   </div>
                 )}
+                <div className="drawer-timestamp">
+                  <span>🕐 Created: <strong>{new Date(selectedAlert.created_at).toLocaleString()}</strong></span>
+                  <span>🔄 Updated: <strong>{new Date(selectedAlert.updated_at).toLocaleString()}</strong></span>
+                </div>
               </section>
 
               {/* Threat Intelligence Explorer */}
@@ -1103,7 +1381,7 @@ export default function App() {
                       onClick={handleExecutePlaybook}
                       disabled={playbookRunning || !selectedPlaybook}
                     >
-                      🚀 Run Playbook
+                      {playbookRunning ? <><span className="spinner" /> Running...</> : '🚀 Run Playbook'}
                     </button>
 
                     {playbookMessage && (
