@@ -228,3 +228,22 @@ class TestRecentAlerts:
     def test_recent_alerts_min_limit_1(self):
         response = client.get("/dashboard/recent-alerts?limit=0")
         assert response.status_code == 422   # below min
+
+
+class TestDashboardInsights:
+    def test_dashboard_insights_returns_200(self):
+        response = client.get("/dashboard/insights")
+        assert response.status_code == 200
+
+    def test_dashboard_insights_has_expected_sections(self):
+        _seed(5)
+        data = client.get("/dashboard/insights").json()
+        assert "top_alert_types" in data
+        assert "top_source_ips" in data
+        assert "activity_trend_7d" in data
+
+    def test_dashboard_insights_empty_db(self):
+        data = client.get("/dashboard/insights").json()
+        assert data["top_alert_types"] == []
+        assert data["top_source_ips"] == []
+        assert len(data["activity_trend_7d"]) == 7

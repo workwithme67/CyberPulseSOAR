@@ -38,6 +38,11 @@ type Alert = {
   risk_score: number;
   threat_verdict: string | null;
   enrichment_data?: string | null;
+  mitre_tactic?: string | null;
+  mitre_technique?: string | null;
+  country?: string | null;
+  city?: string | null;
+  sla_status?: string;
   created_at: string;
   updated_at: string;
 };
@@ -123,6 +128,7 @@ export default function App() {
   // Triage Side-sheet (Drawer) States
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [selectedAlertTimeline, setSelectedAlertTimeline] = useState<TimelineEvent[]>([]);
+  const [relatedAlerts, setRelatedAlerts] = useState<Alert[]>([]);
   
   // Modals & Auth States
   const [showIngestModal, setShowIngestModal] = useState(false);
@@ -367,11 +373,30 @@ export default function App() {
     }
   };
 
-  const handleSelectAlert = (alert: Alert) => {
+  const handleSelectAlert = useCallback((alert: Alert) => {
     setSelectedAlert(alert);
     setSelectedAlertTimeline([]);
     setActiveTiData(null);
-    void fetchTimeline(alert.alert_id);
+    setTiTab('abuseipdb');
+    setCopiedIp(false);
+    setPlaybookMessage(null);
+    setRelatedAlerts([]);
+    
+    // Fetch timeline
+    fetch(`${apiBase}/alerts/${alert.id}/timeline`, { headers })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.events) setSelectedAlertTimeline(data.events);
+      })
+      .catch((err) => console.error("Failed loading timeline", err));
+      
+    // Fetch related alerts
+    fetch(`${apiBase}/alerts/${alert.id}/related`, { headers })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.alerts) setRelatedAlerts(data.alerts);
+      })
+      .catch((err) => console.error("Failed loading related alerts", err));
 
     if (alert.enrichment_data) {
       try {
@@ -386,7 +411,7 @@ export default function App() {
 
     setPlaybookMessage(null);
     setPlaybookNotes('');
-  };
+  }, [headers]);
 
   const fetchLiveTi = async (id: number) => {
     try {
@@ -457,6 +482,14 @@ export default function App() {
   // Ingest Alert Submit Handler
   const handleIngestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!token) {
+      setShowIngestModal(false);
+      setAuthType('login');
+      setShowAuthModal(true);
+      addToast('Please log in as an analyst before ingesting alerts.', 'info');
+      return;
+    }
     
     // Client-side IPv4 regex validation
     const ipv4Regex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -647,7 +680,15 @@ export default function App() {
 
             <button 
               className="btn btn-primary"
-              onClick={() => setShowIngestModal(true)}
+                onClick={() => {
+                  if (!token) {
+                    setAuthType('login');
+                    setShowAuthModal(true);
+                    addToast('Log in first to ingest and enrich alerts.', 'info');
+                    return;
+                  }
+                  setShowIngestModal(true);
+                }}
             >
               ➕ Ingest Alert
             </button>
@@ -867,6 +908,11 @@ export default function App() {
                       </div>
                       <div>
                         <span className={`badge badge-${alert.severity.toLowerCase()}`}>{alert.severity}</span>
+                        {alert.sla_status && alert.sla_status !== 'On Track' && alert.sla_status !== 'Resolved' && (
+                          <span className="badge badge-critical" style={{ marginLeft: '4px', padding: '2px 6px', fontSize: '0.65rem' }}>
+                            SLA {alert.sla_status}
+                          </span>
+                        )}
                         <p>{alert.source_ip}</p>
                       </div>
                       <div>
@@ -1120,6 +1166,16 @@ export default function App() {
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                   <span className={`badge badge-${selectedAlert.severity.toLowerCase()}`}>{selectedAlert.severity}</span>
                   <span className={`badge badge-status badge-${selectedAlert.status.toLowerCase()}`}>{selectedAlert.status}</span>
+                  {selectedAlert.sla_status && (
+                    <span className={`badge ${selectedAlert.sla_status === 'Breached' ? 'badge-critical' : selectedAlert.sla_status === 'At Risk' ? 'badge-warning' : 'badge-low'}`}>
+                      SLA: {selectedAlert.sla_status}
+                    </span>
+                  )}
+                  {selectedAlert.mitre_tactic && selectedAlert.mitre_tactic !== 'Unknown' && (
+                    <span className="badge" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                      MITRE: {selectedAlert.mitre_tactic} ({selectedAlert.mitre_technique})
+                    </span>
+                  )}
                 </div>
               </div>
               <button className="close-btn" onClick={() => setSelectedAlert(null)}>
@@ -1163,6 +1219,11 @@ export default function App() {
                     <span>Source IP Address</span>
                     <strong>
                       {selectedAlert.source_ip}
+                      {selectedAlert.country && selectedAlert.country !== 'Unknown' && (
+                         <span style={{ fontSize: '0.8rem', color: 'var(--muted)', marginLeft: '8px', fontWeight: 'normal' }}>
+                           ({selectedAlert.city}, {selectedAlert.country})
+                         </span>
+                      )}
                       <button className="copy-btn" onClick={() => handleCopyIp(selectedAlert.source_ip)}>
                         {copiedIp ? '✓ Copied' : 'Copy'}
                       </button>
@@ -1209,6 +1270,27 @@ export default function App() {
                   <span>🔄 Updated: <strong>{new Date(selectedAlert.updated_at).toLocaleString()}</strong></span>
                 </div>
               </section>
+
+              {/* Related Alerts */}
+              {relatedAlerts.length > 0 && (
+                <section className="drawer-section">
+                  <span className="drawer-section-title">Related Alerts</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {relatedAlerts.map(r => (
+                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem' }}>{r.alert_type}</strong>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '2px' }}>{r.source_ip} • {ageLabel(r.created_at)}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          <span className={`badge badge-${r.severity.toLowerCase()}`} style={{ fontSize: '0.65rem', padding: '2px 6px' }}>{r.severity}</span>
+                          <span className={`badge badge-status badge-${r.status.toLowerCase()}`} style={{ fontSize: '0.65rem', padding: '2px 6px' }}>{r.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* Threat Intelligence Explorer */}
               <section className="drawer-section">

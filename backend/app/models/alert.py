@@ -83,6 +83,13 @@ class Alert(Base):
 
     risk_score: float = Column(Float, nullable=True, default=0.0)
 
+    # MITRE ATT&CK Mapping
+    mitre_tactic: str = Column(String(100), nullable=True)
+    mitre_technique: str = Column(String(100), nullable=True)
+    
+    # Geolocation Data
+    country: str = Column(String(100), nullable=True)
+    city: str = Column(String(100), nullable=True)
     # Threat intelligence outputs
     threat_verdict: str   = Column(String(20),  nullable=True, default="Unknown")
     enrichment_data: str  = Column(Text,         nullable=True)   # JSON string
@@ -115,3 +122,32 @@ class Alert(Base):
             f"severity={self.severity} status={self.status} "
             f"score={self.risk_score} verdict={self.threat_verdict}>"
         )
+        
+    @property
+    def sla_status(self) -> str:
+        """Dynamically calculate SLA status based on severity and open duration."""
+        if self.status == AlertStatus.Resolved:
+            return "Resolved"
+        
+        # Calculate how long it's been open
+        if self.created_at.tzinfo is None:
+            created = self.created_at.replace(tzinfo=timezone.utc)
+        else:
+            created = self.created_at
+            
+        open_duration = datetime.now(timezone.utc) - created
+        hours_open = open_duration.total_seconds() / 3600.0
+
+        if self.severity == SeverityLevel.Critical:
+            if hours_open > 4: return "Breached"
+            if hours_open > 2: return "At Risk"
+        elif self.severity == SeverityLevel.High:
+            if hours_open > 12: return "Breached"
+            if hours_open > 8: return "At Risk"
+        elif self.severity == SeverityLevel.Medium:
+            if hours_open > 24: return "Breached"
+            if hours_open > 18: return "At Risk"
+        else: # Low
+            if hours_open > 48: return "Breached"
+        
+        return "On Track"

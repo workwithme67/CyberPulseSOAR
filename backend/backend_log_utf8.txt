@@ -1,0 +1,25 @@
+﻿python : INFO:     Will watch for changes in these directories: 
+['C:\\Users\\lenovo\\OneDrive\\Desktop\\soar\\CyberPulseSOAR\\backend']
+At line:1 char:1
++ python -m uvicorn app.main:app --reload > ../backend_server.log 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (INFO:     Will ...SOAR\\backend']:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\lenovo\AppData\Local\Programs\Python\Python311\Lib\site-packages\requests\__init__.py:113: 
+RequestsDependencyWarning: urllib3 (2.7.0) or chardet (7.4.3)/charset_normalizer (3.4.7) doesn't match a supported 
+version!
+  warnings.warn(
+2026-07-19 22:12:01 | INFO     | root | Logging initialised | level=INFO file=soar.log
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [13908] using StatReload
+C:\Users\lenovo\AppData\Local\Programs\Python\Python311\Lib\site-packages\requests\__init__.py:113: 
+RequestsDependencyWarning: urllib3 (2.7.0) or chardet (7.4.3)/charset_normalizer (3.4.7) doesn't match a supported 
+version!
+  warnings.warn(
+2026-07-19 22:12:04 | INFO     | root | Logging initialised | level=INFO file=soar.log
+INFO:     Started server process [9568]
+INFO:     Waiting for application startup.
+2026-07-19 22:12:04 | INFO     | soar.main | SOAR Engine v0.5.0 starting | env=development db=sqlite:///./soar.db
+2026-07-19 22:12:04 | INFO     | soar.main | TI APIs | AbuseIPDB=mock | VirusTotal=mock
+INFO:     Application startup complete.

@@ -109,15 +109,27 @@ def issue_token(user: User) -> dict:
 # ── Seed default admin ─────────────────────────────────────────────────────────
 
 def seed_default_admin(db: Session) -> None:
-    """Create a default admin user if no users exist in the database."""
-    if db.query(User).count() == 0:
-        from app.models.schemas import UserCreate as UC
-        payload = UC(
-            username="admin",
-            email="admin@soar.local",
-            full_name="SOAR Administrator",
-            password="Admin@1234",
-            role=UserRole.Admin,
-        )
-        create_user(db, payload)
-        logger.info("Default admin user seeded (admin / Admin@1234) – change immediately!")
+    """Ensure the default bootstrap admin exists with the documented password."""
+    admin = get_user_by_username(db, "admin")
+    if admin:
+        admin.email = admin.email or "admin@soar.local"
+        admin.full_name = admin.full_name or "SOAR Administrator"
+        admin.hashed_password = hash_password("Admin@1234")
+        admin.role = UserRole.Admin
+        admin.is_active = True
+        db.commit()
+        db.refresh(admin)
+        logger.info("Default admin user reset (admin / Admin@1234) – change immediately!")
+        return
+
+    from app.models.schemas import UserCreate as UC
+
+    payload = UC(
+        username="admin",
+        email="admin@soar.local",
+        full_name="SOAR Administrator",
+        password="Admin@1234",
+        role=UserRole.Admin,
+    )
+    create_user(db, payload)
+    logger.info("Default admin user seeded (admin / Admin@1234) – change immediately!")

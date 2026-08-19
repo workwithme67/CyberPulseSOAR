@@ -29,6 +29,7 @@ from app.models.schemas import (
     AlertStatusUpdate,
     AlertTimeline,
     TimelineEventResponse,
+    RelatedAlertsResponse,
 )
 from app.routes.deps import require_admin, require_analyst, require_any_role
 from app.services import alert_service, threat_intelligence, timeline_service
@@ -121,6 +122,7 @@ def export_alerts_csv(
     writer.writerow([
         "ID", "Alert ID", "Type", "Source IP", "Severity", 
         "Status", "Risk Score", "Threat Verdict", "Description", 
+        "MITRE Tactic", "MITRE Technique", "Country", "City",
         "Created At", "Updated At"
     ])
     
@@ -128,6 +130,7 @@ def export_alerts_csv(
         writer.writerow([
             a.id, a.alert_id, a.alert_type, a.source_ip, a.severity.value if hasattr(a.severity, 'value') else str(a.severity), 
             a.status.value if hasattr(a.status, 'value') else str(a.status), a.risk_score, a.threat_verdict, a.description or "", 
+            a.mitre_tactic or "", a.mitre_technique or "", a.country or "", a.city or "",
             a.created_at.isoformat() if hasattr(a.created_at, 'isoformat') else str(a.created_at), 
             a.updated_at.isoformat() if hasattr(a.updated_at, 'isoformat') else str(a.updated_at)
         ])
@@ -156,6 +159,23 @@ def get_alert(
 ) -> AlertResponse:
     """Retrieve a specific security alert by its numeric ID."""
     return alert_service.get_alert_by_id(db=db, alert_id=alert_id)
+
+
+# ── GET /alerts/{alert_id}/related ──────────────────────────────────────────
+@router.get(
+    "/{alert_id}/related",
+    response_model=RelatedAlertsResponse,
+    summary="Get related alerts by IP or type",
+    description="Returns recent alerts originating from the same IP address or sharing the same alert type.",
+)
+def get_related_alerts_endpoint(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role),
+) -> RelatedAlertsResponse:
+    """Fetch related alerts for correlation."""
+    related = alert_service.get_related_alerts(db=db, alert_id=alert_id, limit=5)
+    return RelatedAlertsResponse(count=len(related), alerts=related)
 
 
 # ── PATCH /alerts/{alert_id}/status ──────────────────────────────────────────

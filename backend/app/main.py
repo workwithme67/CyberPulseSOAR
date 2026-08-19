@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database.db import Base, engine
 from app.routes import alerts, dashboard, auth, playbooks
+from app.services.auth_service import seed_default_admin
 from app.utils.helpers import get_logger, setup_logging
 
 # ── Logging must be configured before any module uses get_logger() ───────────
@@ -36,6 +37,13 @@ async def lifespan(app: FastAPI):
     from app.models import alert, timeline, user, blocked_ip, playbook  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    from app.database.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        seed_default_admin(db)
+    finally:
+        db.close()
     logger.info(
         "SOAR Engine v%s starting | env=%s db=%s",
         app.version, settings.APP_ENV, settings.DATABASE_URL,

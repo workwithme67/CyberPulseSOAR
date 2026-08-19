@@ -174,10 +174,36 @@ class AlertResponse(AlertBase):
     risk_score:      float
     threat_verdict:  Optional[str]
     enrichment_data: Optional[str] = None
+    
+    mitre_tactic:    Optional[str] = None
+    mitre_technique: Optional[str] = None
+    country:         Optional[str] = None
+    city:            Optional[str] = None
+    
+    sla_status:      Optional[str] = None
+    
     created_at:      datetime
     updated_at:      datetime
 
     model_config = {"from_attributes": True}
+
+
+class RelatedAlertResponse(BaseModel):
+    """Summarized alert record for related incidents."""
+    id:          int
+    alert_id:    str
+    alert_type:  str
+    source_ip:   str
+    severity:    str
+    status:      str
+    created_at:  datetime
+    
+    model_config = {"from_attributes": True}
+
+class RelatedAlertsResponse(BaseModel):
+    """List of related alerts."""
+    count:  int
+    alerts: List[RelatedAlertResponse]
 
 
 class AlertListResponse(BaseModel):

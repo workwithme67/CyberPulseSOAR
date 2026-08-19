@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.alert import Alert, AlertStatus, SeverityLevel
@@ -34,6 +34,22 @@ logger = get_logger(__name__)
 
 def _generate_alert_id() -> str:
     return f"ALERT-{uuid.uuid4().hex[:8].upper()}"
+
+def _map_mitre_attack(alert_type: str) -> tuple[str, str]:
+    """Map alert type to a MITRE ATT&CK Tactic and Technique."""
+    lower_type = alert_type.lower()
+    if "brute force" in lower_type:
+        return "Credential Access", "T1110 (Brute Force)"
+    elif "port scan" in lower_type:
+        return "Discovery", "T1046 (Network Service Discovery)"
+    elif "ransomware" in lower_type:
+        return "Impact", "T1486 (Data Encrypted for Impact)"
+    elif "malware" in lower_type:
+        return "Execution", "T1204 (User Execution)"
+    elif "phishing" in lower_type:
+        return "Initial Access", "T1566 (Phishing)"
+    else:
+        return "Unknown", "Unknown"
 
 
 def _get_or_404(db: Session, alert_id: int) -> Alert:
@@ -67,6 +83,8 @@ def create_alert(db: Session, payload: AlertCreate) -> Alert:
     Alert : Fully populated ORM instance.
     """
     # ── Step 1: Persist alert skeleton ────────────────────────────────────────
+    tactic, technique = _map_mitre_attack(payload.alert_type)
+
     alert = Alert(
         alert_id=_generate_alert_id(),
         alert_type=payload.alert_type,
@@ -76,6 +94,8 @@ def create_alert(db: Session, payload: AlertCreate) -> Alert:
         status=payload.status,
         risk_score=0.0,
         threat_verdict="Pending",
+        mitre_tactic=tactic,
+        mitre_technique=technique,
     )
     db.add(alert)
     db.commit()
@@ -149,6 +169,10 @@ def create_alert(db: Session, payload: AlertCreate) -> Alert:
     alert.risk_score = computed_risk
     alert.threat_verdict = threat_verdict
     alert.enrichment_data = json.dumps(ti_data, default=str) if ti_data else None
+    
+    # Extract geolocation if available in ti_data (from abuseipdb mock)
+    alert.country = ti_data.get("country", "Unknown")
+    alert.city = ti_data.get("city", "Unknown")
 
     db.commit()
     db.refresh(alert)
@@ -231,6 +255,32 @@ def get_alerts(
 def get_alert_by_id(db: Session, alert_id: int) -> Alert:
     """Fetch by integer PK; raises 404 if not found."""
     return _get_or_404(db, alert_id)
+
+
+# ── Read (related) ────────────────────────────────────────────────────────────
+
+def get_related_alerts(db: Session, alert_id: int, limit: int = 10) -> List[Alert]:
+    """Fetch recent alerts from the same IP or of the same type."""
+    alert = _get_or_404(db, alert_id)
+    
+    time_window = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    related = (
+        db.query(Alert)
+        .filter(Alert.id != alert.id)
+        .filter(Alert.created_at >= time_window)
+        .filter(
+            or_(
+                Alert.source_ip == alert.source_ip,
+                Alert.alert_type == alert.alert_type
+            )
+        )
+        .order_by(Alert.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+        
+    return related
 
 
 # ── Update status ─────────────────────────────────────────────────────────────

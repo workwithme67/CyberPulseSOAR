@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
 
@@ -19,6 +20,15 @@ _FORMATTER = logging.Formatter(
 )
 
 _ROOT_CONFIGURED = False
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve_log_path(log_file: str) -> str:
+    """Resolve relative log files against the backend root directory."""
+    log_path = Path(log_file)
+    if not log_path.is_absolute():
+        log_path = (_BACKEND_ROOT / log_path).resolve()
+    return str(log_path)
 
 
 def setup_logging(log_level: str = "INFO", log_file: str = "soar.log",
@@ -53,7 +63,7 @@ def setup_logging(log_level: str = "INFO", log_file: str = "soar.log",
     # ── Rotating file handler ──────────────────────────────────────────────
     try:
         file_handler = RotatingFileHandler(
-            log_file,
+            _resolve_log_path(log_file),
             maxBytes=max_bytes,
             backupCount=backup_count,
             encoding="utf-8",

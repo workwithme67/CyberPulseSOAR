@@ -318,6 +318,7 @@ def enrich_ip(ip: str) -> Dict[str, Any]:
         "virustotal":           vt,
         "ipinfo":               ipinfo,
         "country":              ipinfo.get("country", abuse.get("country_code", "")),
+        "city":                 ipinfo.get("city", "Unknown"),
         "asn":                  ipinfo.get("asn", ""),
         "org":                  ipinfo.get("org", abuse.get("isp", "")),
         "aggregate_confidence": aggregate,

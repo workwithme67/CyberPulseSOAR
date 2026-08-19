@@ -56,11 +56,15 @@ Security Alert Received
 | Feature | Status | Details |
 |---------|--------|---------|
 | 🚨 Alert Ingestion & Management | ✅ Complete | Full CRUD with pagination & filtering |
-| 🔍 Threat Intelligence Enrichment | ✅ Complete | AbuseIPDB + VirusTotal (real API + deterministic mock) |
+| 🔍 Threat Intelligence Enrichment | ✅ Complete | AbuseIPDB + VirusTotal (real API + deterministic mock), Geolocation |
 | 📊 Risk Scoring Engine | ✅ Complete | 4-factor weighted score (0–100) |
+| 🛡️ MITRE ATT&CK Mapping | ✅ Complete | Auto-maps alerts to Tactics and Techniques |
+| ⏱️ SLA Tracking Engine | ✅ Complete | Dynamic status (On Track, At Risk, Breached) |
+| 🔗 Threat Correlation Engine | ✅ Complete | Identifies related historical alerts |
 | 🎭 Automated Response Playbooks | ✅ Complete | block_ip, isolate_host, notify_soc, escalate |
 | 📅 Incident Timeline Tracking | ✅ Complete | 5 event types, full audit trail |
 | 📈 Interactive Dashboard API | ✅ Complete | Summary, risk distribution, recent alerts |
+| 📥 CSV Report Export | ✅ Complete | One-click export for management reporting |
 | 🔐 User Authentication (RBAC) | 🔜 In Progress | JWT-based auth + Admin/Analyst/Viewer roles |
 | 🌐 Frontend Dashboard | ✅ Complete | React/Vite real-time dashboard |
 | 📧 Real-time Notifications | 🔜 Planned | WebSocket push for Critical alerts |
@@ -370,14 +374,15 @@ soar-incident-containment-engine/
 | Feature | Priority | Status |
 |---------|----------|--------|
 | Frontend Dashboard (React/Vite) | ✅ Complete | Live dashboard consuming backend analytics |
+| MITRE ATT&CK Mapping | ✅ Complete | Auto-mapping implemented |
+| CSV Report Export | ✅ Complete | Export functionality added |
+| SLA Tracking & Threat Correlation | ✅ Complete | High-impact management features live |
 | JWT Auth + RBAC | 🔴 High | In Progress |
 | WebSocket Real-time Alerts | 🟡 Medium | Planned |
 | SIEM Integration (Splunk/Elastic) | 🟡 Medium | Planned |
 | PostgreSQL Migration | 🟡 Medium | Planned |
 | Docker + docker-compose | 🟡 Medium | Planned |
 | GitHub Actions CI/CD | 🟢 Low | Planned |
-| PDF/CSV Report Export | 🟢 Low | Planned |
-| MITRE ATT&CK Mapping | 🟢 Low | Planned |
 | Rate Limiting | 🟢 Low | Planned |
 
 ---
