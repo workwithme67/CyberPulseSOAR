@@ -1,4 +1,6 @@
 # 🛡️ SOAR Incident Containment Engine
+**This project is a SOAR-based incident containment engine.**
+
 
 > **Security Orchestration, Automation, and Response (SOAR) Platform**  
 > Cybersecurity internship project for automated incident containment and response.
@@ -50,20 +52,29 @@ Security Alert Received
 ```
 
 ---
+## 🚀 Features
 
-## ✨ Features
+| Feature                               |     Status     | Details                                                                              |
+| ------------------------------------- | :------------: | ------------------------------------------------------------------------------------ |
+| 🚨 **Alert Ingestion & Management**   |   ✅ Complete   | Full CRUD operations with pagination and filtering                                   |
+| 🔍 **Threat Intelligence Enrichment** |   ✅ Complete   | AbuseIPDB and VirusTotal integration with real API and deterministic mock support    |
+| 📊 **Risk Scoring Engine**            |   ✅ Complete   | Four-factor weighted risk score ranging from 0–100                                   |
+| 🎭 **Automated Response Playbooks**   |   ✅ Complete   | Automated actions including `block_ip`, `isolate_host`, `notify_soc`, and `escalate` |
+| 📅 **Incident Timeline Tracking**     |   ✅ Complete   | Five event types with a complete audit trail                                         |
+| 📈 **Interactive Dashboard API**      |   ✅ Complete   | Provides summary statistics, risk distribution, and recent alert information         |
+| 🌐 **Frontend Dashboard**             |   ✅ Complete   | React/Vite-based real-time security dashboard                                        |
+| 🔐 **User Authentication & RBAC**     | 🔜 In Progress | JWT-based authentication with Admin, Analyst, and Viewer roles                       |
+| 📧 **Real-time Notifications**        |   🔜 Planned   | WebSocket-based push notifications for critical security alerts                      |
 
-| Feature | Status | Details |
-|---------|--------|---------|
-| 🚨 Alert Ingestion & Management | ✅ Complete | Full CRUD with pagination & filtering |
-| 🔍 Threat Intelligence Enrichment | ✅ Complete | AbuseIPDB + VirusTotal (real API + deterministic mock) |
-| 📊 Risk Scoring Engine | ✅ Complete | 4-factor weighted score (0–100) |
-| 🎭 Automated Response Playbooks | ✅ Complete | block_ip, isolate_host, notify_soc, escalate |
-| 📅 Incident Timeline Tracking | ✅ Complete | 5 event types, full audit trail |
-| 📈 Interactive Dashboard API | ✅ Complete | Summary, risk distribution, recent alerts |
-| 🔐 User Authentication (RBAC) | 🔜 In Progress | JWT-based auth + Admin/Analyst/Viewer roles |
-| 🌐 Frontend Dashboard | ✅ Complete | React/Vite real-time dashboard |
-| 📧 Real-time Notifications | 🔜 Planned | WebSocket push for Critical alerts |
+### 🔑 Key Capabilities
+
+🔑 Key Capabilities
+🚨 Alert Ingestion — Receive security alerts through webhooks.
+🔍 Threat Enrichment — Enrich alerts using threat intelligence.
+📊 Risk Scoring — Calculate risk scores from 0–100.
+🎭 Automated Response — Execute incident response playbooks.
+📅 Incident Tracking — Maintain timelines and audit trails.
+📈 Security Dashboard — Monitor alerts and security activity.
 
 ---
 
